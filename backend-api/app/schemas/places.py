@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 
 class PlaceSuggestionItem(BaseModel):
     display_name: str = Field(..., description="Full descriptive location string for input UI dropdown selection")

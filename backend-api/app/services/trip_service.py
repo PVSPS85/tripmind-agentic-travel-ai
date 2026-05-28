@@ -47,7 +47,7 @@ class TripOrchestrationService:
             raise ResourceNotFoundException(detail="The requested trip configuration dashboard was not found.")
         return TripDashboardSchema(trip_id=db_trip.id, **db_trip.generated_itinerary)
 
-    async def re-execute_agent_pipeline(self, trip_id: uuid.UUID) -> TripDashboardSchema:
+    async def re_execute_agent_pipeline(self, trip_id: uuid.UUID) -> TripDashboardSchema:
         db_trip = await self.repo.get_trip_by_id(trip_id)
         if not db_trip:
             raise ResourceNotFoundException(detail="Target trip context mapping parameters unavailable.")

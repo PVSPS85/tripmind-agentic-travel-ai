@@ -30,4 +30,4 @@ async def regenerate_trip_components(
     refreshing tool lookups (like weather variations or live budget pricing shifts).
     """
     service = TripOrchestrationService(db)
-    return await service.re-execute_agent_pipeline(trip_id)
+    return await service.re_execute_agent_pipeline(trip_id)

@@ -10,8 +10,8 @@ from app.config import settings
 from app.schemas.plan import TripGenerationRequest
 
 # 1. Import the specialized logic classes
-from app.agents.specialized.profile_analyst import ProfileAnalystLogic
-from app.agents.specialized.budget_optimizer import BudgetOptimizerLogic
+from app.agents.specialized.profile_analyst import ProfileLogic
+from app.agents.specialized.budget_optimizer import BudgetLogic
 
 class TripMindAgentCrewOrchestrator:
     """
@@ -36,8 +36,8 @@ class TripMindAgentCrewOrchestrator:
 
     async def run_orchestration_loop(self) -> Dict[str, Any]:
         # 2. Execute specialized Python logic to compute hard constraints
-        pacing_guardrails = ProfileAnalystLogic.determine_pacing_constraints(self.params.travelers)
-        budget_allocations = BudgetOptimizerLogic.calculate_target_allocations(self.params.budget_inr)
+        pacing_guardrails = ProfileLogic.determine_pacing_constraints(self.params.travelers.dict())
+        budget_allocations = BudgetLogic.calculate_target_allocations(self.params.budget_inr)
 
         # 3. Instantiate specialized agents
         profile_analyst = Agent(

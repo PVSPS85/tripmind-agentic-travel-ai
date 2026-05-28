@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import settings
 from app.core.exceptions import TripMindException
+from app.api.v1.router import api_v1_router
+from app.models.trip import Trip
 
 # Initialize standard high-performance production FastAPI app wrapper configuration
 app = FastAPI(
@@ -46,5 +48,6 @@ async def system_health_status_check() -> dict:
         "environment": settings.ENVIRONMENT
     }
 
-# Ready to append API Routers in subsequent file sequences...
-# app.include_router(api_v1_router, prefix=settings.API_V1_STR)
+# Register v1 API routes
+app.include_router(api_v1_router, prefix=settings.API_V1_STR)
+
