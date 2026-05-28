@@ -7,9 +7,11 @@ from app.schemas.plan import TripGenerationRequest
 from app.schemas.trip_dashboard import TripDashboardSchema
 from app.core.exceptions import ResourceNotFoundException, AgentExecutionException
 
-# Forward-declaration signature helper for our CrewAI orchestrator execution mapping layer
-# Implemented fully in subsequent agent module sequence files
-from app.agents.crew import TripMindAgentCrewOrchestrator
+# Lazy import CrewAI orchestrator - loaded only when needed to avoid startup overhead
+def _get_crew_orchestrator():
+    """Lazy load CrewAI orchestrator only when needed."""
+    from app.agents.crew import TripMindAgentCrewOrchestrator
+    return TripMindAgentCrewOrchestrator
 
 class TripOrchestrationService:
     def __init__(self, db_session: AsyncSession) -> None:
@@ -29,6 +31,7 @@ class TripOrchestrationService:
         
         # 2. Invoke multi-agent execution cycle (CrewAI orchestrated with low latency Groq inference maps)
         try:
+            TripMindAgentCrewOrchestrator = _get_crew_orchestrator()
             orchestrator = TripMindAgentCrewOrchestrator(request_params=request, trip_uuid=db_trip.id)
             raw_agent_json_output = await orchestrator.run_orchestration_loop()
         except Exception as err:

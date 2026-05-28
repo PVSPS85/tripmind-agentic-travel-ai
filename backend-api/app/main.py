@@ -4,7 +4,6 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.core.exceptions import TripMindException
 from app.api.v1.router import api_v1_router
-from app.models.trip import Trip
 
 # Initialize standard high-performance production FastAPI app wrapper configuration
 app = FastAPI(

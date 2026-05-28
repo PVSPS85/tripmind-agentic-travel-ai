@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import AnyHttpUrl, PostgresDsn, field_validator
+from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -17,12 +17,12 @@ class Settings(BaseSettings):
         "https://tripmind-ai.vercel.app"
     ]
 
-    # Database
+    # Database - Must use asyncpg for async operations
     DATABASE_URL: str
 
     # Agent Engine / LLM
     GROQ_API_KEY: str
-    GROQ_MODEL_NAME: str = "llama3-70b-8192"
+    GROQ_MODEL_NAME: str = "llama-3.3-70b-versatile"
 
     # Agent Tools
     SERPER_API_KEY: str
@@ -36,4 +36,14 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
+    @field_validator('DATABASE_URL')
+    @classmethod
+    def validate_database_url(cls, v: str) -> str:
+        """Ensure DATABASE_URL uses asyncpg driver for async operations."""
+        if v and 'postgresql' in v and 'asyncpg' not in v:
+            # Automatically convert postgres:// to postgresql+asyncpg://
+            v = v.replace('postgresql://', 'postgresql+asyncpg://')
+        return v
+
 settings = Settings()
+

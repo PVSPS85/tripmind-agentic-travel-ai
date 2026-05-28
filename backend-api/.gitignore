@@ -22,3 +22,5 @@ htmlcov/
 .idea/
 *.db
 *.sqlite3
+.env
+.env
