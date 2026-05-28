@@ -1,1 +1,12 @@
-
+crewai
+langchain-google-genai
+langchain-groq
+python-dotenv
+requests
+pydantic
+langchain
+litellm
+crewai
+crewai-tools
+python-dotenv
+litellm
