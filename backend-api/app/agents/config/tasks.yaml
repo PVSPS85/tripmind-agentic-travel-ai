@@ -1,1 +1,32 @@
+analyze_profile_task:
+  description: >
+    Evaluate a group trip to {destination} with {kids} kids, {adults} adults, and {seniors} seniors.
+    Incorporate the requested travel style ({travel_style}) and food preference ({food_preference}).
+    Establish explicit behavioral pacing rules (e.g., senior mobility limits or child-friendly intervals).
+  expected_output: >
+    A comprehensive demographic baseline profile outlining maximum active hours per day and specific routing rules.
+  agent: profile_analyst
 
+discover_attractions_task:
+  description: >
+    Search for high-value points of interest and dining options in {destination} based on user interests ({interests}).
+    Filter out any high-exertion options if senior travelers are present, ensuring every venue accommodates the group profile.
+  expected_output: >
+    A filtered list of verified local attractions, complete with descriptions and access details.
+  agent: attraction_searcher
+
+construct_itinerary_task:
+  description: >
+    Organize the discovered attractions into a structured day-by-day plan based on the calculated group pacing rules.
+    Ensure daily schedules include theme statements, realistic time slots, and appropriate dining intervals matching the {food_preference} preference.
+  expected_output: >
+    A day-by-day chronological travel map with defined themes and specific activities for morning, afternoon, and evening slots.
+  agent: itinerary_designer
+
+optimize_budget_task:
+  description: >
+    Review the compiled itinerary and allocate estimated costs in INR for accommodations, dining, entry fees, and transportation.
+    Ensure total costs do not exceed the max ceiling of {budget_inr} INR. Readjust recommendations if necessary to maintain a clear financial buffer.
+  expected_output: >
+    A complete JSON-compliant travel specification matching the exact key-value pairs required by TripDashboardSchema.
+  agent: budget_optimizer
