@@ -69,11 +69,33 @@ export default function Dashboard() {
 
   const containerVariants = {
     hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.15,
+        delayChildren: 0.1,
+      }
+    }
   };
+
   const itemVariants = {
-    hidden: { opacity: 0, y: 15 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100 } }
+    hidden: { opacity: 0, y: 30, scale: 0.98 },
+    show: { 
+      opacity: 1, 
+      y: 0, 
+      scale: 1,
+      transition: { type: "spring", stiffness: 120, damping: 20 }
+    }
+  };
+
+  const cardHoverVariants = {
+    rest: { scale: 1 },
+    hover: { 
+      scale: 1.02,
+      y: -4,
+      boxShadow: "0px 10px 30px rgba(139, 156, 255, 0.15)",
+      transition: { type: "spring", stiffness: 400, damping: 25 }
+    }
   };
 
   return (
@@ -176,8 +198,15 @@ export default function Dashboard() {
                 { label: 'Food', val: bIntell.allocated_food_total_inr, icon: '🍽️', color: 'bg-blue-500' },
                 { label: 'Travel', val: bIntell.allocated_transport_total_inr, icon: '🚗', color: 'bg-teal-500' },
                 { label: 'Activities', val: bIntell.allocated_activities_total_inr, icon: '🎯', color: 'bg-orange-500' },
-              ].map((item, idx) => (
-                <div key={idx} className="relative">
+              ].map((item, i) => (
+                <motion.div 
+                key={i} 
+                className="mb-10 last:mb-0 relative"
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ duration: 0.5, delay: i * 0.1 }}
+              >
                   <div className="flex justify-between text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
                     <span className="flex items-center gap-2"><span>{item.icon}</span> {item.label}</span>
                     <span>₹{(item.val || 0).toLocaleString()}</span>
@@ -186,11 +215,11 @@ export default function Dashboard() {
                     <motion.div 
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.min(100, ((item.val || 0) / totalAllocated) * 100)}%` }}
-                      transition={{ duration: 1, delay: 0.2 + idx * 0.1 }}
+                      transition={{ duration: 1, delay: 0.2 + i * 0.1 }}
                       className={`h-full ${item.color} rounded-full`}
                     />
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
 
@@ -318,24 +347,32 @@ export default function Dashboard() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {transports.map((t: any, i: number) => (
-                <div key={i} className="bg-white dark:bg-[#151923] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col h-full">
-                  <div className="flex justify-between items-start mb-3">
+                <motion.div 
+                  key={i} 
+                  className="bg-white dark:bg-[#151923] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col h-full group relative overflow-hidden"
+                  variants={cardHoverVariants}
+                  initial="rest"
+                  whileHover="hover"
+                  animate="rest"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 via-blue-500/0 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <div className="flex justify-between items-start mb-3 relative">
                     <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600">🚕</div>
                     {t.badges?.[0] && <span className="text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-full">{t.badges[0]}</span>}
                   </div>
-                  <h3 className="font-bold text-gray-900 dark:text-white text-base mb-1">{t.mode}</h3>
-                  <div className="flex items-center gap-2 text-xs text-gray-500 mb-3 font-medium">
+                  <h3 className="font-bold text-gray-900 dark:text-white text-base mb-1 relative">{t.mode}</h3>
+                  <div className="flex items-center gap-2 text-xs text-gray-500 mb-3 font-medium relative">
                     <span>⏱ {t.duration}</span> • <span>{t.cost_estimate}</span>
                   </div>
-                  <div className="flex flex-wrap gap-1 mb-4">
+                  <div className="flex flex-wrap gap-1 mb-4 relative">
                     {t.badges?.slice(1).map((b: string, idx: number) => (
                       <span key={idx} className="text-[10px] px-2 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 rounded-full">{b}</span>
                     ))}
                   </div>
-                  <div className="mt-auto pt-4 border-t border-gray-100 dark:border-gray-800/50">
+                  <div className="mt-auto pt-4 border-t border-gray-100 dark:border-gray-800/50 relative">
                     <p className="text-[11px] text-gray-600 dark:text-gray-400"><span className="font-semibold text-indigo-600">Why:</span> {t.explainability?.reason_why}</p>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           </motion.div>
@@ -352,44 +389,40 @@ export default function Dashboard() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {extraActivities.map((act: any, i: number) => (
-                <div key={i} className="bg-white dark:bg-[#151923] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden flex flex-col sm:flex-row">
-                  <div className="w-full sm:w-48 h-48 bg-gray-100 relative shrink-0">
-                    {act.image_url && <img src={act.image_url} alt={act.activity_name} className="w-full h-full object-cover" />}
+                <motion.div 
+                  key={i} 
+                  className="bg-white dark:bg-[#151923] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden flex flex-col sm:flex-row group relative"
+                  variants={cardHoverVariants}
+                  initial="rest"
+                  whileHover="hover"
+                  animate="rest"
+                >
+                  <div className="w-full sm:w-48 h-48 bg-gray-100 relative shrink-0 overflow-hidden">
+                    {act.image_url && <img src={act.image_url} alt={act.activity_name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                     <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">{act.best_time}</div>
                   </div>
-                  <div className="p-5 flex flex-col justify-between w-full">
-                    <div>
+                  <div className="p-5 flex flex-col justify-between w-full relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-orange-500/0 via-orange-500/0 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+                    <div className="relative">
                       <div className="flex justify-between items-start gap-2 mb-1">
                         <h3 className="font-bold text-gray-900 dark:text-white text-base">{act.activity_name}</h3>
                       </div>
-                      <div className="flex items-center gap-2 text-[10px] text-gray-500 font-medium mb-3">
-                        <span className="text-orange-500">★ {act.rating}</span> • <span>{act.category}</span>
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-2 font-medium">
+                        <span>⏱ {act.duration}</span> • <span>{act.cost_estimate}</span>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 bg-gray-50 dark:bg-[#0B0F17] p-2 rounded-lg mb-3 border border-gray-100 dark:border-gray-800">
-                        <div>
-                          <p className="text-[9px] text-gray-400 uppercase tracking-wide">FOR</p>
-                          <p className="text-[10px] font-bold text-gray-700 dark:text-gray-300">{act.target_age_group}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] text-gray-400 uppercase tracking-wide">WALKING</p>
-                          <p className="text-[10px] font-bold text-gray-700 dark:text-gray-300">{act.walking_effort}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] text-gray-400 uppercase tracking-wide">ENERGY</p>
-                          <p className="text-[10px] font-bold text-gray-700 dark:text-gray-300">{act.energy_level}</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 line-clamp-2 leading-relaxed">{act.description}</p>
                       <div className="flex flex-wrap gap-1 mb-2">
-                        {act.tags?.map((t: string, idx: number) => (
-                          <span key={idx} className="text-[9px] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 px-2 py-0.5 rounded-full font-medium">{t}</span>
+                        {act.badges?.map((b: string, idx: number) => (
+                          <span key={idx} className="text-[10px] px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full">{b}</span>
                         ))}
                       </div>
-                      <p className="text-[11px] text-gray-600 dark:text-gray-400 line-clamp-2"><span className="font-semibold text-indigo-600">Why:</span> {act.explainability?.reason_why}</p>
+                    </div>
+                    <div className="pt-3 border-t border-gray-100 dark:border-gray-800/50 relative">
+                      <p className="text-[11px] text-gray-600 dark:text-gray-400"><span className="font-semibold text-orange-600">Why:</span> {act.explainability?.reason_why}</p>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           </motion.div>

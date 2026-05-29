@@ -20,7 +20,8 @@ elif settings.ENVIRONMENT == "development":
         settings.DATABASE_URL,
         echo=settings.DEBUG,
         pool_pre_ping=True,
-        poolclass=NullPool
+        poolclass=NullPool,
+        connect_args={"statement_cache_size": 0}
     )
 else:
     # PostgreSQL Production: use QueuePool with connection pooling
@@ -30,7 +31,8 @@ else:
         pool_pre_ping=True,
         poolclass=QueuePool,
         pool_size=10,
-        max_overflow=20
+        max_overflow=20,
+        connect_args={"statement_cache_size": 0}
     )
 
 # Create async session factory for dependency injection

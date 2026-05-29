@@ -30,7 +30,7 @@ def clean_json_output(raw_output):
 
 class TripCrewOrchestrator:
     def __init__(self):
-        self.primary_llm = gemini_llm
+        self.primary_llm = groq_llm
         self.fallback_llm = openai_llm
         self._rebuild_agents(self.primary_llm)
 
