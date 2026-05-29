@@ -22,6 +22,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Auto-create database tables on startup (critical for SQLite local dev)
+@app.on_event("startup")
+async def on_startup():
+    from app.database.session import engine
+    from app.database.base_class import Base
+    from app.database.models import Trip, CachedLocation  # noqa: F401 — ensure models are registered
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print(f"[TripMind] Database tables ready. Engine: {engine.url}")
+
 # Exception handlers mapping internal custom pipeline blocks directly to clean system outputs
 @app.exception_handler(TripMindException)
 async def tripmind_exception_handler(request: Request, exc: TripMindException) -> JSONResponse:
@@ -49,4 +59,5 @@ async def system_health_status_check() -> dict:
 
 # Register v1 API routes
 app.include_router(api_v1_router, prefix=settings.API_V1_STR)
+
 

@@ -98,18 +98,27 @@ class LLMConfig:
     # Use standard model identifiers
     @staticmethod
     def get_gemini_model():
+        # Falls back to Google's generous 15 RPM free tier if Groq goes down
         return LLM(
-            model="gemini/gemini-2.0-flash", 
+            model="gemini/gemini-1.5-flash",
             temperature=0.4
         )
 
     @staticmethod
     def get_groq_model():
-        # Llama 3.3 is the stable, high-performance default for Groq
+        # Using 8b-instant because the free tier gives 30,000 TPM, whereas 70b only gives 6,000 TPM
         return LLM(
-            model="groq/llama-3.3-70b-versatile",
+            model="groq/llama-3.1-8b-instant",
+            temperature=0.3
+        )
+
+    @staticmethod
+    def get_openai_model():
+        return LLM(
+            model="openai/gpt-4o",
             temperature=0.3
         )
 
 gemini_llm = LLMConfig.get_gemini_model()
 groq_llm = LLMConfig.get_groq_model()
+openai_llm = LLMConfig.get_openai_model()

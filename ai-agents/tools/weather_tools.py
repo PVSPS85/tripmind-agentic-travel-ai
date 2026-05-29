@@ -6,7 +6,7 @@ class WeatherTools:
     @tool("Get weather forecast")
     def get_weather(city: str) -> str:
         """Useful to get the current and forecasted weather for a specific city. Input should be just the city name."""
-        api_key = os.environ.get('OPENWEATHER_KEY')
+        api_key = os.environ.get('OPENWEATHER_API_KEY')
         if not api_key:
             return "Weather API key not configured in environment."
             

@@ -1,14 +1,44 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Integer, DateTime, JSON, Numeric
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import String, Integer, DateTime, JSON, Numeric, TypeDecorator, CHAR
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database.base_class import Base
+from app.config import settings
+
+
+class UUIDType(TypeDecorator):
+    """Platform-independent UUID type. Uses PostgreSQL's UUID on Postgres,
+    stores as CHAR(36) on other backends (like SQLite)."""
+    impl = CHAR
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(PG_UUID(as_uuid=True))
+        else:
+            return dialect.type_descriptor(CHAR(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        if dialect.name == "postgresql":
+            return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
+        else:
+            return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        if not isinstance(value, uuid.UUID):
+            return uuid.UUID(str(value))
+        return value
+
 
 class Trip(Base):
     __tablename__ = "trips"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(UUIDType(36), primary_key=True, default=uuid.uuid4)
     destination: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     start_date: Mapped[str] = mapped_column(String(50), nullable=False)
     end_date: Mapped[str] = mapped_column(String(50), nullable=False)

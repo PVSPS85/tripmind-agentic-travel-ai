@@ -3,12 +3,19 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.pool import QueuePool, NullPool
 from app.config import settings
 
-# Create async engine with asyncpg driver for PostgreSQL/Supabase
-# QueuePool is used in production; NullPool in development to avoid connection pool issues
-pool_class = NullPool if settings.ENVIRONMENT == "development" else QueuePool
+# Determine if using SQLite or PostgreSQL
+is_sqlite = "sqlite" in settings.DATABASE_URL
 
-if settings.ENVIRONMENT == "development":
-    # Development: use NullPool (no connection pooling)
+if is_sqlite:
+    # SQLite: NullPool only, no connection pooling options
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=settings.DEBUG,
+        connect_args={"check_same_thread": False},
+        poolclass=NullPool
+    )
+elif settings.ENVIRONMENT == "development":
+    # PostgreSQL Development: use NullPool (no connection pooling)
     engine = create_async_engine(
         settings.DATABASE_URL,
         echo=settings.DEBUG,
@@ -16,7 +23,7 @@ if settings.ENVIRONMENT == "development":
         poolclass=NullPool
     )
 else:
-    # Production: use QueuePool with connection pooling
+    # PostgreSQL Production: use QueuePool with connection pooling
     engine = create_async_engine(
         settings.DATABASE_URL,
         echo=settings.DEBUG,
@@ -49,5 +56,3 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
         finally:
             await session.close()
-
-

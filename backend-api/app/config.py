@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     
     # Security
-    SECRET_KEY: str
+    SECRET_KEY: str = "dev-secret-key-change-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     BACKEND_CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
@@ -17,15 +17,15 @@ class Settings(BaseSettings):
         "https://tripmind-ai.vercel.app"
     ]
 
-    # Database - Must use asyncpg for async operations
-    DATABASE_URL: str
+    # Database — defaults to local SQLite if not provided
+    DATABASE_URL: str = "sqlite+aiosqlite:///./tripmind.db"
 
     # Agent Engine / LLM
-    GROQ_API_KEY: str
+    GROQ_API_KEY: str = ""
     GROQ_MODEL_NAME: str = "llama-3.3-70b-versatile"
 
     # Agent Tools
-    SERPER_API_KEY: str
+    SERPER_API_KEY: str = ""
     OPENWEATHER_API_KEY: Optional[str] = None
     GEOAPIFY_API_KEY: Optional[str] = None
 
@@ -41,9 +41,7 @@ class Settings(BaseSettings):
     def validate_database_url(cls, v: str) -> str:
         """Ensure DATABASE_URL uses asyncpg driver for async operations."""
         if v and 'postgresql' in v and 'asyncpg' not in v:
-            # Automatically convert postgres:// to postgresql+asyncpg://
             v = v.replace('postgresql://', 'postgresql+asyncpg://')
         return v
 
 settings = Settings()
-
