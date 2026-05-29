@@ -17,7 +17,7 @@ class ActivityItem(BaseModel):
     energy_level: str = Field(default="Relaxed", description="E.g., 'Relaxed', 'Active'")
     transit_estimate: str = Field(default="", description="E.g., '🚗 8 min • Free'")
     image_url: Optional[str] = Field(None, description="Unsplash source URL placeholder")
-    explainability: AIExplainability
+    explainability: Optional[AIExplainability] = Field(default=None)
 
 class ExtraActivityItem(BaseModel):
     activity_name: str

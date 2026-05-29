@@ -4,7 +4,7 @@ import re
 import signal
 import time
 from crewai import Task, Crew, Process
-from config.llm_config import gemini_llm, groq_llm
+from config.llm_config import gemini_llm, groq_llm, openai_llm
 from agents_bundle import (
     TravelerProfileAgent,
     DestinationAgent,
@@ -32,8 +32,8 @@ def clean_json_output(raw_output):
 
 class TripCrewOrchestrator:
     def __init__(self):
-        self.primary_llm = gemini_llm
-        self.fallback_llm = groq_llm
+        self.primary_llm = groq_llm
+        self.fallback_llm = openai_llm
         self._rebuild_agents(self.primary_llm)
 
     def _build_agent(self, agent_factory, llm):
@@ -595,7 +595,7 @@ class TripCrewOrchestrator:
             description=f"Suggest 5-8 extra activities, hidden gems, and unique experiences in {trip_inputs['destination']} beyond the main itinerary. Consider interests: {trip_inputs.get('interests', [])}. Target a {trip_inputs['budgetMode']} budget.",
             expected_output="A JSON dict with key 'extra_activities' containing a list of 5-8 items. Each MUST have: 'activity_name', 'image_url' (Unsplash URL), 'rating' (float), 'category' (e.g. 'Adventure', 'Culture'), 'target_age_group', 'walking_effort', 'energy_level', 'duration' (string), 'best_time' (string), 'estimated_cost_inr' (float), and 'explainability' (dict with 'reason_why' and 'best_time_to_visit').",
             agent=self.activity_agent,
-            async_execution=True
+            async_execution=False
         )
 
         return Crew(
@@ -612,38 +612,136 @@ class TripCrewOrchestrator:
             verbose=True
         )
 
+    def _generate_direct_plan(self, trip_inputs: dict) -> dict:
+        """Generate a complete trip plan with a SINGLE LLM call — fast and reliable."""
+        import litellm
+        import os
+
+        dest = trip_inputs.get("destination", "Unknown")
+        start_date = trip_inputs.get("startDate", "")
+        end_date = trip_inputs.get("endDate", "")
+        kids = trip_inputs.get("kids", 0)
+        adults = trip_inputs.get("adults", 2)
+        seniors = trip_inputs.get("seniors", 0)
+        budget = trip_inputs.get("budgetMode", "Moderate")
+        food_pref = trip_inputs.get("foodPref", "Both")
+        travel_style = trip_inputs.get("travelStyle", "Balanced")
+        interests = trip_inputs.get("interests", [])
+        trip_days = self._estimate_trip_days(trip_inputs)
+
+        prompt = f"""Generate a {trip_days}-day trip plan JSON for {dest}. {adults} adults, {kids} kids, {seniors} seniors. Budget: {budget}. Food: {food_pref}. Style: {travel_style}.
+
+Return valid JSON with these keys:
+- "destination": "{dest}"
+- "duration_days": {trip_days}
+- "ai_optimization_summary": [3 strings]
+- "weather_pipeline": {{"expected_condition":"str","packing_suggestions":["5 items"],"adaptive_itinerary_note":"str"}}
+- "budget_intelligence": {{"allocated_hotels_total_inr":float,"allocated_food_total_inr":float,"allocated_activities_total_inr":float,"allocated_transport_total_inr":float,"remaining_buffer_inr":float,"summary_insight":"str"}}
+- "hotels": array of 4 objects, each: {{"name":"REAL hotel in {dest}","rating":float,"price_per_night_inr":float,"location_area":"str","image_url":"","amenities_tags":[],"badges":[],"explainability":{{"reason_why":"str","best_time_to_visit":null}}}}
+- "food_and_dining": array of 4 objects, each: {{"restaurant_name":"REAL restaurant","cuisine_type":"str","rating":float,"dietary_suitability":"{food_pref}","estimated_cost_per_person_inr":float,"distance":"area • X km","image_url":"","explainability":{{"reason_why":"str","best_time_to_visit":null}}}}
+- "transportation": array of 2 objects: {{"mode":"str","duration":"str","cost_estimate":"₹X","badges":[],"explainability":{{"reason_why":"str","best_time_to_visit":null}}}}
+- "extra_activities": array of 3 objects: {{"activity_name":"REAL activity","image_url":"","rating":float,"category":"str","target_age_group":"str","walking_effort":"Low walk","energy_level":"Relaxed","duration":"X hrs","best_time":"Morning","estimated_cost_inr":float,"tags":[],"explainability":{{"reason_why":"str","best_time_to_visit":"time"}}}}
+- "itinerary": array of {trip_days} days, each: {{"day_number":int,"date_string":"Day N","theme":"str","day_energy_badge":"Balanced","weather_forecast":"str","activities":[3 per day: {{"time_slot":"Morning/Afternoon/Evening","start_time":"HH:MM","activity_name":"REAL place","description":"str","estimated_cost_inr":float,"target_age_group":"str","walking_effort":"str","energy_level":"str","transit_estimate":"🚗 X min • ₹X","image_url":"","explainability":{{"reason_why":"str","best_time_to_visit":"time"}}}}]}}
+
+Use REAL places in {dest}. Prices in INR. Leave image_url empty. Return ONLY JSON."""
+
+        groq_model = os.environ.get("GROQ_MODEL_NAME", "llama-3.1-8b-instant")
+        original_completion = getattr(litellm.completion, '_tripmind_cache_breakpoint_original', litellm.completion)
+
+        print(f"[TripMind] 🚀 Direct single-call generation for {dest} using groq/{groq_model}...")
+
+        response = original_completion(
+            model=f"groq/{groq_model}",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+            max_tokens=3000,
+            response_format={"type": "json_object"}
+        )
+
+        result_text = response.choices[0].message.content
+        parsed = json.loads(result_text)
+        parsed["destination"] = dest
+        parsed["duration_days"] = trip_days
+
+        # --- Inject REAL images using Serper API ---
+        import requests
+        from concurrent.futures import ThreadPoolExecutor
+        import os
+        from dotenv import load_dotenv
+
+        # Force load the .env file so os.environ has the key
+        load_dotenv(".env")
+        serper_key = os.environ.get("SERPER_API_KEY", "")
+
+        def fetch_image(query: str) -> str:
+            if not serper_key: 
+                print("[TripMind] SERPER_API_KEY missing in os.environ!")
+                return "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80"
+            try:
+                url = "https://google.serper.dev/images"
+                payload = json.dumps({"q": query, "num": 1})
+                headers = {'X-API-KEY': serper_key, 'Content-Type': 'application/json'}
+                res = requests.post(url, headers=headers, data=payload, timeout=5)
+                data = res.json()
+                if "images" in data and len(data["images"]) > 0:
+                    return data["images"][0].get("imageUrl")
+                else:
+                    print(f"[TripMind] Serper returned no images for: {query}")
+            except Exception as e:
+                print(f"[TripMind] Serper API Exception for {query}: {e}")
+                pass
+            return "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80"
+
+        # Gather all items that need images
+        tasks = []
+        for h in parsed.get("hotels", []):
+            tasks.append((h, f"{h.get('name', '')} {dest} hotel exterior"))
+        for f in parsed.get("food_and_dining", []):
+            tasks.append((f, f"{f.get('restaurant_name', '')} {dest} restaurant"))
+        for a in parsed.get("extra_activities", []):
+            tasks.append((a, f"{a.get('activity_name', '')} {dest} activity"))
+        for day in parsed.get("itinerary", []):
+            for act in day.get("activities", []):
+                tasks.append((act, f"{act.get('activity_name', '')} {dest}"))
+
+        def worker(task):
+            obj, query = task
+            obj["image_url"] = fetch_image(query)
+
+        # Fetch all images concurrently (super fast)
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            executor.map(worker, tasks)
+        # -------------------------------------------
+
+        print(f"[TripMind] ✅ Direct generation succeeded for {dest} with REAL photos")
+        return parsed
+
     def plan_trip(self, trip_inputs: dict) -> dict:
         """
-        Takes the raw JSON input from the frontend and orchestrates the multi-agent workflow.
+        Fast trip generation: single direct LLM call with retries.
+        Skips the slow CrewAI pipeline to avoid rate-limit exhaustion.
         """
-        self._reset_default_llms()
-        trip_crew = self._build_trip_crew(trip_inputs)
+        last_err = None
+        for attempt in range(1, 4):
+            try:
+                return self._generate_direct_plan(trip_inputs)
+            except Exception as err:
+                last_err = err
+                err_msg = str(err).lower()
+                if "rate_limit" in err_msg or "rate limit" in err_msg or "429" in err_msg:
+                    # Extract wait time from error or use exponential backoff
+                    wait = 5.0 * attempt
+                    match = re.search(r"try again in ([\d.]+)s", str(err))
+                    if match:
+                        wait = float(match.group(1)) + 1.0
+                    print(f"[TripMind] Rate limited, waiting {wait}s before retry {attempt}/3...")
+                    time.sleep(wait)
+                else:
+                    print(f"[TripMind] Direct generation failed (attempt {attempt}): {err}")
+                    break  # Non-rate-limit error, don't retry
 
-        try:
-            raw_result = self._execute_crew_with_retry(trip_crew)
-            cleaned_result = clean_json_output(raw_result)
-            parsed = self._parse_result(cleaned_result)
-            
-            parsed = self._enrich_missing_fields(parsed, trip_crew, trip_inputs)
-            return parsed
-        except Exception as exc:
-            if self._should_retry_with_fallback(str(exc)):
-                self._apply_fallback_llms()
-                trip_crew = self._build_trip_crew(trip_inputs)
-                try:
-                    raw_result = self._execute_crew_with_retry(trip_crew)
-                    cleaned_result = clean_json_output(raw_result)
-                    parsed = self._parse_result(cleaned_result)
-                    
-                    parsed = self._enrich_missing_fields(parsed, trip_crew, trip_inputs)
-                    return parsed
-                except Exception as fallback_exc:
-                    return self._build_offline_fallback_plan(
-                        trip_inputs,
-                        str(fallback_exc),
-                    )
-
-            return self._build_offline_fallback_plan(
-                trip_inputs,
-                str(exc),
-            )
+        # Fallback: offline curated data
+        return self._build_offline_fallback_plan(
+            trip_inputs,
+            str(last_err),
+        )

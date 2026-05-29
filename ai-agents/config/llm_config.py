@@ -128,9 +128,8 @@ class LLMConfig:
     # Use standard model identifiers
     @staticmethod
     def get_gemini_model():
-        # Falls back to Google's generous 15 RPM free tier if Groq goes down
         return LLM(
-            model="gemini/gemini-1.5-flash-latest",
+            model="gemini/gemini-1.5-flash",
             temperature=0.4
         )
 

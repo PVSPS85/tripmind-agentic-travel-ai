@@ -30,10 +30,21 @@ function computeBudgetINR(data: TripRequest): number {
 }
 
 export async function generatePlan(data: TripRequest) {
+  const formatDate = (dateStr: string) => {
+    // If it's DD/MM/YYYY, convert to YYYY-MM-DD
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+    }
+    return dateStr;
+  };
+
   const backendPayload = {
     destination: data.destination,
-    start_date: data.startDate,
-    end_date: data.endDate,
+    start_date: formatDate(data.startDate),
+    end_date: formatDate(data.endDate),
     travelers: {
       kids: data.kids,
       adults: data.adults,
