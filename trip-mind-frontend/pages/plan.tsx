@@ -79,9 +79,31 @@ export default function PlanTrip() {
     }));
   };
 
+  const parseDateStr = (dateStr: string) => {
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+      const parts = dateStr.split('/');
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return dateStr;
+  };
+
   const handleSubmit = async () => {
     if (!formData.destination || !formData.startDate || !formData.endDate) {
-      setErrorMsg("Please fill out the destination and dates.");
+      const missing = [];
+      if (!formData.destination) missing.push('Destination');
+      if (!formData.startDate) missing.push('Start Date');
+      if (!formData.endDate) missing.push('End Date');
+      setErrorMsg(`Please fill out: ${missing.join(', ')}`);
+      return;
+    }
+    
+    const parsedStart = parseDateStr(formData.startDate);
+    const parsedEnd = parseDateStr(formData.endDate);
+
+    const start = new Date(parsedStart);
+    const end = new Date(parsedEnd);
+    if (end < start) {
+      setErrorMsg("End date cannot be before start date.");
       return;
     }
     setErrorMsg('');
@@ -90,8 +112,8 @@ export default function PlanTrip() {
     try {
       const result = await generatePlan({
         destination: formData.destination,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
+        startDate: parsedStart,
+        endDate: parsedEnd,
         kids: formData.kids,
         adults: formData.adults,
         seniors: formData.seniors,
@@ -261,7 +283,8 @@ export default function PlanTrip() {
               <div>
                 <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Start date</span>
                 <input 
-                  type="date" 
+                  type="text" 
+                  placeholder="DD/MM/YYYY"
                   value={formData.startDate}
                   onChange={(e) => setFormData({...formData, startDate: e.target.value})}
                   className="w-full bg-transparent border border-gray-300 dark:border-gray-800 rounded-xl py-3.5 px-4 text-gray-900 dark:text-gray-300 focus:outline-none focus:border-[#8B9CFF]" 
@@ -270,7 +293,8 @@ export default function PlanTrip() {
               <div>
                 <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">End date</span>
                 <input 
-                  type="date" 
+                  type="text" 
+                  placeholder="DD/MM/YYYY"
                   value={formData.endDate}
                   onChange={(e) => setFormData({...formData, endDate: e.target.value})}
                   className="w-full bg-transparent border border-gray-300 dark:border-gray-800 rounded-xl py-3.5 px-4 text-gray-900 dark:text-gray-300 focus:outline-none focus:border-[#8B9CFF]" 

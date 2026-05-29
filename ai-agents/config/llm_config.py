@@ -50,14 +50,29 @@ def apply_litellm_input_hook(force=False):
         if len(args) > 1:
             messages = args[1]
 
+        import time
+        import re
         if isinstance(model, str) and model.lower().startswith("groq"):
+            time.sleep(3)
             sanitized_kwargs = dict(kwargs)
             sanitized_kwargs.pop("messages", None)
             sanitized_kwargs.pop("model", None)
             sanitized_messages, sanitized_kwargs = sanitize_litellm_request_payload(model, messages=messages, **sanitized_kwargs)
             sanitized_kwargs["model"] = model
             sanitized_kwargs["messages"] = sanitized_messages
-            return original_completion(**sanitized_kwargs)
+            
+            while True:
+                try:
+                    return original_completion(**sanitized_kwargs)
+                except Exception as e:
+                    err_msg = str(e)
+                    if "rate_limit_exceeded" in err_msg or "RateLimitError" in err_msg:
+                        match = re.search(r"try again in ([\d\.]+)s", err_msg)
+                        delay = float(match.group(1)) + 1.0 if match else 10.0
+                        print(f"[RateLimit Intercepted] Sleeping for {delay} seconds...")
+                        time.sleep(delay)
+                    else:
+                        raise
 
         return original_completion(*args, **kwargs)
 
@@ -75,14 +90,29 @@ def apply_litellm_input_hook(force=False):
             if len(args) > 1:
                 messages = args[1]
 
+            import asyncio
+            import re
             if isinstance(model, str) and model.lower().startswith("groq"):
+                await asyncio.sleep(3)
                 sanitized_kwargs = dict(kwargs)
                 sanitized_kwargs.pop("messages", None)
                 sanitized_kwargs.pop("model", None)
                 sanitized_messages, sanitized_kwargs = sanitize_litellm_request_payload(model, messages=messages, **sanitized_kwargs)
                 sanitized_kwargs["model"] = model
                 sanitized_kwargs["messages"] = sanitized_messages
-                return await original_acompletion(**sanitized_kwargs)
+                
+                while True:
+                    try:
+                        return await original_acompletion(**sanitized_kwargs)
+                    except Exception as e:
+                        err_msg = str(e)
+                        if "rate_limit_exceeded" in err_msg or "RateLimitError" in err_msg:
+                            match = re.search(r"try again in ([\d\.]+)s", err_msg)
+                            delay = float(match.group(1)) + 1.0 if match else 10.0
+                            print(f"[RateLimit Intercepted] Sleeping for {delay} seconds...")
+                            await asyncio.sleep(delay)
+                        else:
+                            raise
 
             return await original_acompletion(*args, **kwargs)
 
@@ -100,15 +130,15 @@ class LLMConfig:
     def get_gemini_model():
         # Falls back to Google's generous 15 RPM free tier if Groq goes down
         return LLM(
-            model="gemini/gemini-1.5-flash",
+            model="gemini/gemini-1.5-flash-latest",
             temperature=0.4
         )
 
     @staticmethod
     def get_groq_model():
-        # Using 8b-instant because the free tier gives 30,000 TPM, whereas 70b only gives 6,000 TPM
+        model_name = os.environ.get("GROQ_MODEL_NAME", "llama-3.1-8b-instant")
         return LLM(
-            model="groq/llama-3.1-8b-instant",
+            model=f"groq/{model_name}",
             temperature=0.3
         )
 

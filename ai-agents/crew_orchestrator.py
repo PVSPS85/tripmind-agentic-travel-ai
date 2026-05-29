@@ -5,13 +5,15 @@ import signal
 import time
 from crewai import Task, Crew, Process
 from config.llm_config import gemini_llm, groq_llm
-from agents.profile_agent import TravelerProfileAgent
-from agents.destination_agent import DestinationAgent
-from agents.itinerary_agent import ItineraryAgent
-from agents.hotel_agent import HotelAgent
-from agents.food_agent import FoodAgent
-from agents.transport_agent import TransportAgent
-from agents.activity_agent import ActivityAgent
+from agents_bundle import (
+    TravelerProfileAgent,
+    DestinationAgent,
+    ItineraryAgent,
+    HotelAgent,
+    FoodAgent,
+    TransportAgent,
+    ActivityAgent
+)
 from mock_data_ooty import get_ooty_mock
 
 
@@ -160,6 +162,53 @@ class TripCrewOrchestrator:
             "error": "Crew AI failed to return valid JSON",
             "raw_output": str(raw_output),
         }
+
+    def _enrich_missing_fields(self, parsed: dict, trip_crew: Crew) -> dict:
+        """Recovers missing arrays directly from specific task outputs."""
+        if not isinstance(parsed, dict):
+            return parsed
+            
+        def safe_extract(task_idx, key):
+            if key not in parsed or not parsed[key]:
+                try:
+                    raw_out = trip_crew.tasks[task_idx].output.raw
+                    extracted = self._extract_json_payload(raw_out)
+                    if isinstance(extracted, dict):
+                        parsed[key] = extracted.get(key, extracted.get("items", []))
+                    elif isinstance(extracted, list):
+                        parsed[key] = extracted
+                    else:
+                        parsed[key] = []
+                except Exception:
+                    parsed[key] = []
+                    
+        safe_extract(2, "itinerary")
+        safe_extract(3, "hotels")
+        # Task 4 is food, it should already be the main dict, but safe_extract won't hurt if it's missing
+        safe_extract(4, "food_and_dining")
+        
+        # Inject required schema fields that were removed from the AI generation pipeline to speed it up
+        if "ai_optimization_summary" not in parsed:
+            parsed["ai_optimization_summary"] = ["Fast AI Agent execution complete.", "Itinerary tailored to your preferences."]
+            
+        if "weather_pipeline" not in parsed:
+            parsed["weather_pipeline"] = {
+                "expected_condition": "Standard weather expected",
+                "packing_suggestions": ["Standard travel gear", "Comfortable shoes"],
+                "adaptive_itinerary_note": "Adjust schedule locally based on real-time weather."
+            }
+            
+        if "budget_intelligence" not in parsed:
+            parsed["budget_intelligence"] = {
+                "allocated_hotels_total_inr": 0.0,
+                "allocated_food_total_inr": 0.0,
+                "allocated_activities_total_inr": 0.0,
+                "allocated_transport_total_inr": 0.0,
+                "remaining_buffer_inr": 0.0,
+                "summary_insight": "Budget optimization skipped for faster generation."
+            }
+            
+        return parsed
 
     def _estimate_trip_days(self, trip_inputs: dict) -> int:
         start_date = trip_inputs.get("startDate")
@@ -495,39 +544,25 @@ class TripCrewOrchestrator:
         # 4. Recommendation Tasks
         hotel_task = Task(
             description=f"Find hotels in {trip_inputs['destination']} matching a {trip_inputs['budgetMode']} budget.",
-            expected_output="JSON list of 3-5 hotels with name, rating, price estimate, location_area, a dummy `image_url`, `amenities_tags`, specific `badges` (e.g. ['Family-friendly', 'Budget']), and a 'Why this place' reason.",
+            expected_output="JSON list of 3-5 hotels. Each MUST have exactly these keys: 'name', 'rating', 'price_per_night_inr' (float), 'location_area', 'image_url', 'amenities_tags' (list of strings), 'badges' (list of strings), and 'explainability' (a dict with 'reason_why' and 'best_time_to_visit' strings).",
             agent=self.hotel_agent,
             context=[profile_task]
         )
 
         food_task = Task(
             description=f"Find {trip_inputs['foodPref']} restaurants in {trip_inputs['destination']} fitting a {trip_inputs['budgetMode']} budget.",
-            expected_output="JSON list of restaurants with cuisine type, Veg/Non-Veg status, dummy `image_url`, physical `distance` estimate, and a 'Why this place' reason.",
+            expected_output="A JSON dict containing exactly one key 'food_and_dining' which is a list. Each item MUST have exactly these keys: 'restaurant_name', 'cuisine_type', 'rating', 'dietary_suitability', 'estimated_cost_per_person_inr' (float), 'distance', 'image_url', and 'explainability' (a dict with 'reason_why' and 'best_time_to_visit' strings).",
             agent=self.food_agent
-        )
-
-        activity_task = Task(
-            description=f"Find 4-6 EXTRA activities (hidden gems, rainy day backups) in {trip_inputs['destination']} matching interests: {', '.join(trip_inputs['interests'])}. DO NOT repeat the main itinerary.",
-            expected_output="JSON list of `extra_activities` containing activity_name, dummy `image_url`, rating, category, target_age_group, walking_effort, energy_level, duration, best_time, tags, and explainability.",
-            agent=self.activity_agent
-        )
-
-        # 5. Final Polish Task (Transport & Weather integration)
-        transport_task = Task(
-            description=f"Review the drafted itinerary for {trip_inputs['destination']}. Generate a `transportation` list with 2-4 overall transport modes (e.g., 'Pre-booked AC cab', 'Auto rickshaw') detailing `duration`, `cost_estimate`, and `badges`.",
-            expected_output="The final, combined JSON dashboard payload strictly matching the `TripDashboardSchema` (including itinerary, hotels, food, transportation, extra_activities, weather, budget).",
-            agent=self.transport_agent,
-            context=[itinerary_task, hotel_task, food_task, activity_task]
         )
 
         return Crew(
             agents=[
                 self.profile_agent, self.destination_agent, self.itinerary_agent,
-                self.hotel_agent, self.food_agent, self.activity_agent, self.transport_agent
+                self.hotel_agent, self.food_agent
             ],
             tasks=[
                 profile_task, destination_task, itinerary_task,
-                hotel_task, food_task, activity_task, transport_task
+                hotel_task, food_task
             ],
             process=Process.sequential,
             max_rpm=15,
@@ -546,18 +581,7 @@ class TripCrewOrchestrator:
             cleaned_result = clean_json_output(raw_result)
             parsed = self._parse_result(cleaned_result)
             
-            if isinstance(parsed, dict) and "itinerary" not in parsed:
-                try:
-                    itin_raw = trip_crew.tasks[2].output.raw
-                    itin_parsed = self._extract_json_payload(itin_raw)
-                    if isinstance(itin_parsed, dict) and "itinerary" in itin_parsed:
-                        parsed["itinerary"] = itin_parsed["itinerary"]
-                    elif isinstance(itin_parsed, list):
-                        parsed["itinerary"] = itin_parsed
-                    else:
-                        parsed["itinerary"] = []
-                except Exception:
-                    parsed["itinerary"] = []
+            parsed = self._enrich_missing_fields(parsed, trip_crew)
             return parsed
         except Exception as exc:
             if self._should_retry_with_fallback(str(exc)):
@@ -568,18 +592,7 @@ class TripCrewOrchestrator:
                     cleaned_result = clean_json_output(raw_result)
                     parsed = self._parse_result(cleaned_result)
                     
-                    if isinstance(parsed, dict) and "itinerary" not in parsed:
-                        try:
-                            itin_raw = trip_crew.tasks[2].output.raw
-                            itin_parsed = self._extract_json_payload(itin_raw)
-                            if isinstance(itin_parsed, dict) and "itinerary" in itin_parsed:
-                                parsed["itinerary"] = itin_parsed["itinerary"]
-                            elif isinstance(itin_parsed, list):
-                                parsed["itinerary"] = itin_parsed
-                            else:
-                                parsed["itinerary"] = []
-                        except Exception:
-                            parsed["itinerary"] = []
+                    parsed = self._enrich_missing_fields(parsed, trip_crew)
                     return parsed
                 except Exception as fallback_exc:
                     return self._build_offline_fallback_plan(

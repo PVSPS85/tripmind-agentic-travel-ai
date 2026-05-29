@@ -57,7 +57,4 @@ async def system_health_status_check() -> dict:
         "environment": settings.ENVIRONMENT
     }
 
-# Register v1 API routes
 app.include_router(api_v1_router, prefix=settings.API_V1_STR)
-
-

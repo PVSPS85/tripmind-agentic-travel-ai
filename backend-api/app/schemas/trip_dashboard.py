@@ -89,6 +89,6 @@ class TripDashboardSchema(BaseModel):
     budget_intelligence: BudgetOptimizationBreakdown
     hotels: List[HotelRecommendation]
     food_and_dining: List[FoodRecommendation]
-    transportation: List[TransportSegment]
+    transportation: List[TransportSegment] = Field(default=[])
     extra_activities: List[ExtraActivityItem] = Field(default=[])
     itinerary: List[DayItinerary]

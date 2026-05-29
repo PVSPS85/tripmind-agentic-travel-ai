@@ -7,7 +7,7 @@ class SearchTools:
     @tool("Search the internet")
     def search_internet(query: str) -> str:
         """Useful to search the internet about a given topic and return relevant results."""
-        top_result_to_return = 4
+        top_result_to_return = 2
         url = "https://google.serper.dev/search"
         payload = json.dumps({"q": query})
         headers = {
