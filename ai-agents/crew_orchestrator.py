@@ -32,8 +32,8 @@ def clean_json_output(raw_output):
 
 class TripCrewOrchestrator:
     def __init__(self):
-        self.primary_llm = groq_llm
-        self.fallback_llm = gemini_llm
+        self.primary_llm = gemini_llm
+        self.fallback_llm = groq_llm
         self._rebuild_agents(self.primary_llm)
 
     def _build_agent(self, agent_factory, llm):
@@ -569,26 +569,25 @@ class TripCrewOrchestrator:
             context=[profile_task, destination_task]
         )
 
-        # 4. Recommendation Tasks
         hotel_task = Task(
-            description=f"Find the BEST 10 to 15 hotels in {trip_inputs['destination']} matching a {trip_inputs['budgetMode']} budget. Include a mix of luxury, mid-range, and budget options.",
-            expected_output="JSON list of 10-15 hotels. Each MUST have exactly these keys: 'name', 'rating' (float), 'price_per_night_inr' (float), 'location_area', 'image_url' (use a realistic Unsplash URL like https://images.unsplash.com/photo-XXXX?w=800&q=80), 'amenities_tags' (list of strings), 'badges' (list of strings like 'Luxury', 'Budget', 'Family-friendly'), and 'explainability' (a dict with 'reason_why' string and 'best_time_to_visit' string or null).",
+            description=f"Find the BEST 5 to 6 hotels in {trip_inputs['destination']} matching a {trip_inputs['budgetMode']} budget. Include a mix of luxury, mid-range, and budget options.",
+            expected_output="JSON list of 5-6 hotels. Each MUST have exactly these keys: 'name', 'rating' (float), 'price_per_night_inr' (float), 'location_area', 'image_url' (use a realistic Unsplash URL like https://images.unsplash.com/photo-XXXX?w=800&q=80), 'amenities_tags' (list of strings), 'badges' (list of strings like 'Luxury', 'Budget', 'Family-friendly'), and 'explainability' (a dict with 'reason_why' string and 'best_time_to_visit' string or null).",
             agent=self.hotel_agent,
-            context=[profile_task]
+            async_execution=True
         )
 
         food_task = Task(
-            description=f"Find the BEST 10 to 15 {trip_inputs['foodPref']} restaurants and cafes in {trip_inputs['destination']} fitting a {trip_inputs['budgetMode']} budget. Include street food, fine dining, and casual spots.",
-            expected_output="A JSON dict with key 'food_and_dining' containing a list of 10-15 items. Each MUST have exactly: 'restaurant_name', 'cuisine_type', 'rating' (float), 'dietary_suitability' (string: 'Veg'/'Non-Veg'/'Both'), 'estimated_cost_per_person_inr' (float), 'distance' (MUST be a string like '2.5 km'), 'image_url' (Unsplash URL), and 'explainability' (dict with 'reason_why' and 'best_time_to_visit').",
-            agent=self.food_agent
+            description=f"Find the BEST 5 to 6 {trip_inputs['foodPref']} restaurants and cafes in {trip_inputs['destination']} fitting a {trip_inputs['budgetMode']} budget.",
+            expected_output="A JSON dict with key 'food_and_dining' containing a list of 5-6 items. Each MUST have exactly: 'restaurant_name', 'cuisine_type', 'rating' (float), 'dietary_suitability' (string: 'Veg'/'Non-Veg'/'Both'), 'estimated_cost_per_person_inr' (float), 'distance' (MUST be a string like '2.5 km'), 'image_url' (Unsplash URL), and 'explainability' (dict with 'reason_why' and 'best_time_to_visit').",
+            agent=self.food_agent,
+            async_execution=True
         )
 
-        # 5. Transport Task
         transport_task = Task(
             description=f"Recommend the best transport options for getting around {trip_inputs['destination']} for {trip_inputs.get('adults', 2)} adults and {trip_inputs.get('kids', 0)} kids over {self._estimate_trip_days(trip_inputs)} days. Consider {trip_inputs['budgetMode']} budget.",
             expected_output="A JSON dict with key 'transportation' containing a list of 3-5 transport segments. Each MUST have: 'mode' (string, e.g. 'Pre-booked AC cab'), 'duration' (string, e.g. 'Full-day • 8 hrs'), 'cost_estimate' (string, e.g. '₹2,800 / day'), 'badges' (list of strings), and 'explainability' (dict with 'reason_why' and 'best_time_to_visit').",
             agent=self.transport_agent,
-            context=[itinerary_task]
+            async_execution=True
         )
 
         # 6. Activities Task
@@ -596,7 +595,7 @@ class TripCrewOrchestrator:
             description=f"Suggest 5-8 extra activities, hidden gems, and unique experiences in {trip_inputs['destination']} beyond the main itinerary. Consider interests: {trip_inputs.get('interests', [])}. Target a {trip_inputs['budgetMode']} budget.",
             expected_output="A JSON dict with key 'extra_activities' containing a list of 5-8 items. Each MUST have: 'activity_name', 'image_url' (Unsplash URL), 'rating' (float), 'category' (e.g. 'Adventure', 'Culture'), 'target_age_group', 'walking_effort', 'energy_level', 'duration' (string), 'best_time' (string), 'estimated_cost_inr' (float), and 'explainability' (dict with 'reason_why' and 'best_time_to_visit').",
             agent=self.activity_agent,
-            context=[profile_task, destination_task]
+            async_execution=True
         )
 
         return Crew(
