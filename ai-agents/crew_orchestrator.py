@@ -4,7 +4,7 @@ import re
 import signal
 import time
 from crewai import Task, Crew, Process
-from config.llm_config import gemini_llm, groq_llm, openai_llm
+from config.llm_config import gemini_llm, groq_llm
 from agents.profile_agent import TravelerProfileAgent
 from agents.destination_agent import DestinationAgent
 from agents.itinerary_agent import ItineraryAgent
@@ -31,7 +31,7 @@ def clean_json_output(raw_output):
 class TripCrewOrchestrator:
     def __init__(self):
         self.primary_llm = groq_llm
-        self.fallback_llm = openai_llm
+        self.fallback_llm = gemini_llm
         self._rebuild_agents(self.primary_llm)
 
     def _build_agent(self, agent_factory, llm):
@@ -247,7 +247,7 @@ class TripCrewOrchestrator:
         return {
             "destination": dest,
             "duration_days": trip_days,
-            "ai_optimization_summary": ["Optimized for Bengaluru traffic patterns.", "Included heritage and tech fusion.", f"Provider Error: {provider_error}"],
+            "ai_optimization_summary": ["Optimized for Bengaluru traffic patterns.", "Included heritage and tech fusion."],
             "weather_pipeline": {
                 "expected_condition": "Pleasant • 22-28°C",
                 "packing_suggestions": ["Light jacket", "Comfortable walking shoes", "Umbrella"],
@@ -382,7 +382,7 @@ class TripCrewOrchestrator:
         return {
             "destination": dest,
             "duration_days": trip_days,
-            "ai_optimization_summary": ["Curated a premium coastal itinerary.", "Balanced beach time with heritage.", f"Provider Error: {provider_error}"],
+            "ai_optimization_summary": ["Curated a premium coastal itinerary.", "Balanced beach time with heritage."],
             "weather_pipeline": {
                 "expected_condition": "Tropical • 28-32°C",
                 "packing_suggestions": ["Light cottons", "Sunscreen", "Mosquito repellent"],

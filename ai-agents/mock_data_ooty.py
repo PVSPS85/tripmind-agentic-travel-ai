@@ -54,7 +54,7 @@ def get_ooty_mock(trip_days: int, dest: str, provider_error: str) -> dict:
         "itinerary": itinerary_days,
         "destination": dest,
         "duration_days": trip_days,
-        "ai_optimization_summary": ["Optimized for a serene hill station experience.", "Balanced sightseeing with relaxation.", f"Provider Error: {provider_error}"],
+        "ai_optimization_summary": ["Optimized for a serene hill station experience.", "Balanced sightseeing with relaxation."],
         "weather_pipeline": {
             "expected_condition": "Pleasant/Chilly • 15-22°C",
             "packing_suggestions": ["Warm jacket", "Comfortable walking shoes", "Umbrella"],
