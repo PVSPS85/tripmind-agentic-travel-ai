@@ -163,7 +163,7 @@ class TripCrewOrchestrator:
             "raw_output": str(raw_output),
         }
 
-    def _enrich_missing_fields(self, parsed: dict, trip_crew: Crew) -> dict:
+    def _enrich_missing_fields(self, parsed: dict, trip_crew: Crew, trip_inputs: dict = None) -> dict:
         """Recovers missing arrays directly from specific task outputs."""
         if not isinstance(parsed, dict):
             return parsed
@@ -184,31 +184,59 @@ class TripCrewOrchestrator:
                     
         safe_extract(2, "itinerary")
         safe_extract(3, "hotels")
-        # Task 4 is food, it should already be the main dict, but safe_extract won't hurt if it's missing
         safe_extract(4, "food_and_dining")
+        safe_extract(5, "transportation")
+        safe_extract(6, "extra_activities")
         
-        # Inject required schema fields that were removed from the AI generation pipeline to speed it up
         if "ai_optimization_summary" not in parsed:
-            parsed["ai_optimization_summary"] = ["Fast AI Agent execution complete.", "Itinerary tailored to your preferences."]
+            parsed["ai_optimization_summary"] = [
+                "Multi-agent AI pipeline complete.",
+                "Itinerary, hotels, food, transport, and activities tailored to your group."
+            ]
             
         if "weather_pipeline" not in parsed:
             parsed["weather_pipeline"] = {
                 "expected_condition": "Standard weather expected",
-                "packing_suggestions": ["Standard travel gear", "Comfortable shoes"],
-                "adaptive_itinerary_note": "Adjust schedule locally based on real-time weather."
+                "packing_suggestions": ["Comfortable walking shoes", "Sunscreen", "Light layers", "Reusable water bottle", "Power bank"],
+                "adaptive_itinerary_note": "Check local weather before heading out each morning."
             }
-            
-        if "budget_intelligence" not in parsed:
-            parsed["budget_intelligence"] = {
-                "allocated_hotels_total_inr": 0.0,
-                "allocated_food_total_inr": 0.0,
-                "allocated_activities_total_inr": 0.0,
-                "allocated_transport_total_inr": 0.0,
-                "remaining_buffer_inr": 0.0,
-                "summary_insight": "Budget optimization skipped for faster generation."
-            }
+
+        # Smart budget computation from the user's actual budget input
+        self._compute_budget_intelligence(parsed, trip_inputs)
             
         return parsed
+
+    def _compute_budget_intelligence(self, parsed: dict, trip_inputs: dict = None):
+        """Compute realistic budget breakdown from user input and generated data."""
+        user_budget = 0.0
+        if trip_inputs:
+            user_budget = float(trip_inputs.get("budget", 0) or 0)
+
+        if user_budget > 0:
+            # Allocate: 35% hotels, 25% food, 20% activities, 12% transport, 8% buffer
+            parsed["budget_intelligence"] = {
+                "allocated_hotels_total_inr": round(user_budget * 0.35, 2),
+                "allocated_food_total_inr": round(user_budget * 0.25, 2),
+                "allocated_activities_total_inr": round(user_budget * 0.20, 2),
+                "allocated_transport_total_inr": round(user_budget * 0.12, 2),
+                "remaining_buffer_inr": round(user_budget * 0.08, 2),
+                "summary_insight": f"Budget of ₹{int(user_budget):,} optimally distributed across all categories."
+            }
+        elif "budget_intelligence" not in parsed or not parsed["budget_intelligence"].get("allocated_hotels_total_inr"):
+            # Estimate from generated hotel/food data
+            hotel_total = sum(float(h.get("price_per_night_inr", 0)) for h in (parsed.get("hotels") or [])[:3])
+            food_total = sum(float(f.get("estimated_cost_per_person_inr", 0)) for f in (parsed.get("food_and_dining") or [])[:5]) * 2
+            activities_total = hotel_total * 0.4
+            transport_total = hotel_total * 0.2
+            buffer = (hotel_total + food_total) * 0.1
+            parsed["budget_intelligence"] = {
+                "allocated_hotels_total_inr": round(hotel_total, 2),
+                "allocated_food_total_inr": round(food_total, 2),
+                "allocated_activities_total_inr": round(activities_total, 2),
+                "allocated_transport_total_inr": round(transport_total, 2),
+                "remaining_buffer_inr": round(buffer, 2),
+                "summary_insight": "Budget estimated from AI-generated recommendations."
+            }
 
     def _estimate_trip_days(self, trip_inputs: dict) -> int:
         start_date = trip_inputs.get("startDate")
@@ -543,26 +571,42 @@ class TripCrewOrchestrator:
 
         # 4. Recommendation Tasks
         hotel_task = Task(
-            description=f"Find hotels in {trip_inputs['destination']} matching a {trip_inputs['budgetMode']} budget.",
-            expected_output="JSON list of 3-5 hotels. Each MUST have exactly these keys: 'name', 'rating', 'price_per_night_inr' (float), 'location_area', 'image_url', 'amenities_tags' (list of strings), 'badges' (list of strings), and 'explainability' (a dict with 'reason_why' and 'best_time_to_visit' strings).",
+            description=f"Find the BEST 10 to 15 hotels in {trip_inputs['destination']} matching a {trip_inputs['budgetMode']} budget. Include a mix of luxury, mid-range, and budget options.",
+            expected_output="JSON list of 10-15 hotels. Each MUST have exactly these keys: 'name', 'rating' (float), 'price_per_night_inr' (float), 'location_area', 'image_url' (use a realistic Unsplash URL like https://images.unsplash.com/photo-XXXX?w=800&q=80), 'amenities_tags' (list of strings), 'badges' (list of strings like 'Luxury', 'Budget', 'Family-friendly'), and 'explainability' (a dict with 'reason_why' string and 'best_time_to_visit' string or null).",
             agent=self.hotel_agent,
             context=[profile_task]
         )
 
         food_task = Task(
-            description=f"Find {trip_inputs['foodPref']} restaurants in {trip_inputs['destination']} fitting a {trip_inputs['budgetMode']} budget.",
-            expected_output="A JSON dict containing exactly one key 'food_and_dining' which is a list. Each item MUST have exactly these keys: 'restaurant_name', 'cuisine_type', 'rating', 'dietary_suitability', 'estimated_cost_per_person_inr' (float), 'distance', 'image_url', and 'explainability' (a dict with 'reason_why' and 'best_time_to_visit' strings).",
+            description=f"Find the BEST 10 to 15 {trip_inputs['foodPref']} restaurants and cafes in {trip_inputs['destination']} fitting a {trip_inputs['budgetMode']} budget. Include street food, fine dining, and casual spots.",
+            expected_output="A JSON dict with key 'food_and_dining' containing a list of 10-15 items. Each MUST have exactly: 'restaurant_name', 'cuisine_type', 'rating' (float), 'dietary_suitability' (string: 'Veg'/'Non-Veg'/'Both'), 'estimated_cost_per_person_inr' (float), 'distance' (MUST be a string like '2.5 km'), 'image_url' (Unsplash URL), and 'explainability' (dict with 'reason_why' and 'best_time_to_visit').",
             agent=self.food_agent
+        )
+
+        # 5. Transport Task
+        transport_task = Task(
+            description=f"Recommend the best transport options for getting around {trip_inputs['destination']} for {trip_inputs.get('adults', 2)} adults and {trip_inputs.get('kids', 0)} kids over {self._estimate_trip_days(trip_inputs)} days. Consider {trip_inputs['budgetMode']} budget.",
+            expected_output="A JSON dict with key 'transportation' containing a list of 3-5 transport segments. Each MUST have: 'mode' (string, e.g. 'Pre-booked AC cab'), 'duration' (string, e.g. 'Full-day • 8 hrs'), 'cost_estimate' (string, e.g. '₹2,800 / day'), 'badges' (list of strings), and 'explainability' (dict with 'reason_why' and 'best_time_to_visit').",
+            agent=self.transport_agent,
+            context=[itinerary_task]
+        )
+
+        # 6. Activities Task
+        activity_task = Task(
+            description=f"Suggest 5-8 extra activities, hidden gems, and unique experiences in {trip_inputs['destination']} beyond the main itinerary. Consider interests: {trip_inputs.get('interests', [])}. Target a {trip_inputs['budgetMode']} budget.",
+            expected_output="A JSON dict with key 'extra_activities' containing a list of 5-8 items. Each MUST have: 'activity_name', 'image_url' (Unsplash URL), 'rating' (float), 'category' (e.g. 'Adventure', 'Culture'), 'target_age_group', 'walking_effort', 'energy_level', 'duration' (string), 'best_time' (string), 'estimated_cost_inr' (float), and 'explainability' (dict with 'reason_why' and 'best_time_to_visit').",
+            agent=self.activity_agent,
+            context=[profile_task, destination_task]
         )
 
         return Crew(
             agents=[
                 self.profile_agent, self.destination_agent, self.itinerary_agent,
-                self.hotel_agent, self.food_agent
+                self.hotel_agent, self.food_agent, self.transport_agent, self.activity_agent
             ],
             tasks=[
                 profile_task, destination_task, itinerary_task,
-                hotel_task, food_task
+                hotel_task, food_task, transport_task, activity_task
             ],
             process=Process.sequential,
             max_rpm=15,
@@ -581,7 +625,7 @@ class TripCrewOrchestrator:
             cleaned_result = clean_json_output(raw_result)
             parsed = self._parse_result(cleaned_result)
             
-            parsed = self._enrich_missing_fields(parsed, trip_crew)
+            parsed = self._enrich_missing_fields(parsed, trip_crew, trip_inputs)
             return parsed
         except Exception as exc:
             if self._should_retry_with_fallback(str(exc)):
@@ -592,7 +636,7 @@ class TripCrewOrchestrator:
                     cleaned_result = clean_json_output(raw_result)
                     parsed = self._parse_result(cleaned_result)
                     
-                    parsed = self._enrich_missing_fields(parsed, trip_crew)
+                    parsed = self._enrich_missing_fields(parsed, trip_crew, trip_inputs)
                     return parsed
                 except Exception as fallback_exc:
                     return self._build_offline_fallback_plan(

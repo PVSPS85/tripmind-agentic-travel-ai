@@ -13,6 +13,12 @@ export default function Dashboard() {
   const [tripData, setTripData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [openSections, setOpenSections] = useState<{[key: string]: boolean}>({
+    hotels: true,
+    food: true,
+    transport: true,
+    activities: true,
+  });
 
   useEffect(() => {
     if (tripId) {
@@ -341,78 +347,238 @@ export default function Dashboard() {
 
 
 
-        {/* HOTELS */}
+        {/* HOTELS ACCORDION */}
         <motion.div variants={itemVariants} className="pt-8">
-          <div className="flex justify-between items-end mb-4">
+          <button 
+            onClick={() => setOpenSections(s => ({...s, hotels: !s.hotels}))}
+            className="w-full flex justify-between items-center mb-4 group cursor-pointer"
+          >
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <span>🏨</span> Hotel recommendations
+              <span>🏨</span> Hotel recommendations <span className="text-sm font-normal text-gray-400">{hotels.length} spots</span>
             </h2>
-            <button className="text-xs font-bold text-indigo-600 dark:text-[#8B9CFF] hover:opacity-80 flex items-center gap-1 transition">
-              <span>↻</span> Regenerate Hotels
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {hotels.map((hotel: any, i: number) => (
-              <div key={i} className="group bg-white dark:bg-[#151923] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden flex flex-col hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition-all duration-300 relative cursor-pointer">
-                <div className="w-full h-40 bg-gray-100 relative overflow-hidden">
-                  {hotel.image_url && <img src={hotel.image_url} alt={hotel.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />}
-                  <button className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center hover:bg-white transition shadow-sm">
-                    <span className="text-sm">♡</span>
-                  </button>
-                </div>
-                <div className="p-5 flex flex-col flex-1 relative bg-white dark:bg-[#151923] z-10">
-                  <div className="flex justify-between items-start mb-1 gap-2">
-                    <h3 className="font-bold text-gray-900 dark:text-white text-base leading-tight">{hotel.name}</h3>
-                    <p className="font-bold text-gray-900 dark:text-white text-sm shrink-0">₹{hotel.price_per_night_inr}</p>
-                  </div>
-                  <div className="flex items-center gap-2 text-[10px] text-gray-500 font-medium mb-3">
-                    <span className="text-orange-500">★ {hotel.rating}</span> • <span>📍 {hotel.location_area}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {hotel.badges?.map((b: string, idx: number) => (
-                      <span key={idx} className="text-[9px] bg-blue-50 dark:bg-blue-900/20 text-blue-600 px-2 py-0.5 rounded-full font-medium">{b}</span>
-                    ))}
-                  </div>
-                  <div className="mt-auto pt-3 border-t border-gray-100 dark:border-gray-800/50">
-                    <p className="text-[11px] text-gray-600 dark:text-gray-400"><span className="font-semibold text-indigo-600">Why:</span> {hotel.explainability?.reason_why}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+            <span className={`text-gray-400 transition-transform duration-300 text-xl ${openSections.hotels ? 'rotate-180' : ''}`}>⌃</span>
+          </button>
+          {openSections.hotels && (
+            <div className="space-y-4">
+              {hotels.map((hotel: any, i: number) => {
+                const hotelImg = hotel.image_url && hotel.image_url.includes('unsplash') 
+                  ? hotel.image_url 
+                  : `https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=80&sig=${i}`;
+                return (
+                  <motion.div 
+                    key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="group bg-white dark:bg-[#151923] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden flex hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition-all duration-300 cursor-pointer"
+                  >
+                    <div className="w-36 sm:w-48 shrink-0 bg-gray-100 dark:bg-gray-800 overflow-hidden relative">
+                      <img src={hotelImg} alt={hotel.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <button className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center hover:bg-white transition shadow-sm">
+                        <span className="text-sm">♡</span>
+                      </button>
+                    </div>
+                    <div className="p-5 flex-1 flex flex-col justify-between min-w-0">
+                      <div>
+                        <div className="flex justify-between items-start gap-2 mb-1">
+                          <h3 className="font-bold text-gray-900 dark:text-white text-base leading-tight truncate">{hotel.name}</h3>
+                          <p className="font-bold text-gray-900 dark:text-white text-sm shrink-0">₹{hotel.price_per_night_inr?.toLocaleString()}</p>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 font-medium mb-3">
+                          <span className="text-orange-500">{'★'.repeat(Math.round(hotel.rating))} {hotel.rating}</span> • <span>📍 {hotel.location_area}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {hotel.badges?.map((b: string, idx: number) => (
+                            <span key={idx} className="text-[10px] bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2.5 py-1 rounded-full font-semibold">{b}</span>
+                          ))}
+                          {hotel.amenities_tags?.slice(0, 3).map((a: string, idx: number) => (
+                            <span key={`a-${idx}`} className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2.5 py-1 rounded-full font-medium">{a}</span>
+                          ))}
+                        </div>
+                      </div>
+                      {hotel.explainability?.reason_why && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 pt-3 border-t border-gray-100 dark:border-gray-800/50">
+                          <span className="font-semibold text-indigo-600 dark:text-[#8B9CFF]">Why:</span> {hotel.explainability.reason_why}
+                        </p>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
         </motion.div>
 
-        {/* FOOD */}
+        {/* FOOD ACCORDION */}
         <motion.div variants={itemVariants} className="pt-8">
-          <div className="flex justify-between items-end mb-4">
+          <button 
+            onClick={() => setOpenSections(s => ({...s, food: !s.food}))}
+            className="w-full flex justify-between items-center mb-4 group cursor-pointer"
+          >
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <span>🍽️</span> Food recommendations
+              <span>🍽️</span> Food recommendations <span className="text-sm font-normal text-gray-400">{foods.length} spots</span>
             </h2>
-            <button className="text-xs font-bold text-indigo-600 dark:text-[#8B9CFF] hover:opacity-80 flex items-center gap-1 transition">
-              <span>↻</span> Regenerate Dining
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {foods.map((food: any, i: number) => (
-              <div key={i} className="group bg-white dark:bg-[#151923] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden flex hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition-all duration-300 cursor-pointer">
-                <div className="w-28 bg-gray-100 shrink-0 overflow-hidden relative">
-                  {food.image_url && <img src={food.image_url} alt={food.restaurant_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />}
-                </div>
-                <div className="p-4 flex-1">
-                  <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1 line-clamp-1">{food.restaurant_name}</h3>
-                  <div className="flex items-center gap-2 text-[10px] text-gray-500 font-medium mb-2">
-                    <span className={`px-1.5 py-0.5 rounded uppercase tracking-wider ${food.dietary_suitability.toLowerCase() === 'non-veg' ? 'bg-red-50 text-red-600' : food.dietary_suitability.toLowerCase() === 'veg' ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}`}>
-                      {food.dietary_suitability}
-                    </span>
-                    <span className="text-orange-500">★ {food.rating}</span>
-                  </div>
-                  <p className="text-[10px] text-gray-500 mb-2 truncate">📍 {food.distance}</p>
-                  <p className="text-[10px] text-gray-600 dark:text-gray-400 line-clamp-2"><span className="font-semibold text-indigo-600">Why:</span> {food.explainability?.reason_why}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+            <span className={`text-gray-400 transition-transform duration-300 text-xl ${openSections.food ? 'rotate-180' : ''}`}>⌃</span>
+          </button>
+          {openSections.food && (
+            <div className="space-y-4">
+              {foods.map((food: any, i: number) => {
+                const foodImg = food.image_url && food.image_url.includes('unsplash')
+                  ? food.image_url
+                  : `https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&q=80&sig=${i}`;
+                const displayName = food.restaurant_name || food.name || 'Restaurant';
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="group bg-white dark:bg-[#151923] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden flex hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition-all duration-300 cursor-pointer"
+                  >
+                    <div className="w-28 sm:w-36 shrink-0 bg-gray-100 dark:bg-gray-800 overflow-hidden relative">
+                      <img src={foodImg} alt={displayName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    </div>
+                    <div className="p-4 flex-1 min-w-0">
+                      <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1.5 truncate">{displayName}</h3>
+                      <div className="flex items-center gap-2 text-[10px] text-gray-500 font-medium mb-2 flex-wrap">
+                        <span className={`px-2 py-0.5 rounded-md uppercase tracking-wider font-bold ${
+                          food.dietary_suitability?.toLowerCase() === 'non-veg' ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400' : 
+                          food.dietary_suitability?.toLowerCase() === 'veg' ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400' : 
+                          'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                        }`}>
+                          {food.dietary_suitability || 'Both'}
+                        </span>
+                        <span className="text-orange-500">{'★'.repeat(Math.round(food.rating || 4))} {food.rating}</span>
+                        <span className="text-gray-400">{food.cuisine_type}</span>
+                      </div>
+                      <p className="text-[11px] text-gray-500 mb-2">📍 {food.distance}</p>
+                      {food.explainability?.reason_why && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                          <span className="font-semibold text-indigo-600 dark:text-[#8B9CFF]">Why:</span> {food.explainability.reason_why}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center pr-4">
+                      <button className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-400 hover:text-indigo-600 transition">
+                        <span className="text-sm">🔖</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
         </motion.div>
+
+        {/* TRANSPORT ACCORDION */}
+        {transports.length > 0 && (
+          <motion.div variants={itemVariants} className="pt-8">
+            <button 
+              onClick={() => setOpenSections(s => ({...s, transport: !s.transport}))}
+              className="w-full flex justify-between items-center mb-4 group cursor-pointer"
+            >
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <span>🚗</span> Transport recommendations <span className="text-sm font-normal text-gray-400">{transports.length} options</span>
+              </h2>
+              <span className={`text-gray-400 transition-transform duration-300 text-xl ${openSections.transport ? 'rotate-180' : ''}`}>⌃</span>
+            </button>
+            {openSections.transport && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {transports.map((t: any, i: number) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.08 }}
+                    className="bg-white dark:bg-[#151923] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 hover:border-teal-300 dark:hover:border-teal-700 hover:shadow-md transition-all duration-300"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-900/20 flex items-center justify-center text-xl">🚗</div>
+                        <div>
+                          <h3 className="font-bold text-gray-900 dark:text-white text-sm">{t.mode}</h3>
+                          <p className="text-xs text-gray-500">{t.duration}</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-bold text-teal-600 dark:text-teal-400">{t.cost_estimate}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {t.badges?.map((b: string, idx: number) => (
+                        <span key={idx} className="text-[10px] bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 px-2.5 py-1 rounded-full font-semibold">{b}</span>
+                      ))}
+                    </div>
+                    {t.explainability?.reason_why && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        <span className="font-semibold text-teal-600 dark:text-teal-400">Why:</span> {t.explainability.reason_why}
+                      </p>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* ACTIVITIES ACCORDION */}
+        {extraActivities.length > 0 && (
+          <motion.div variants={itemVariants} className="pt-8">
+            <button 
+              onClick={() => setOpenSections(s => ({...s, activities: !s.activities}))}
+              className="w-full flex justify-between items-center mb-4 group cursor-pointer"
+            >
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <span>🎯</span> Extra activities & hidden gems <span className="text-sm font-normal text-gray-400">{extraActivities.length} experiences</span>
+              </h2>
+              <span className={`text-gray-400 transition-transform duration-300 text-xl ${openSections.activities ? 'rotate-180' : ''}`}>⌃</span>
+            </button>
+            {openSections.activities && (
+              <div className="space-y-4">
+                {extraActivities.map((act: any, i: number) => {
+                  const actImg = act.image_url && act.image_url.includes('unsplash')
+                    ? act.image_url
+                    : `https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=400&q=80&sig=${i}`;
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="group bg-white dark:bg-[#151923] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden flex hover:border-orange-300 dark:hover:border-orange-700 hover:shadow-md transition-all duration-300 cursor-pointer"
+                    >
+                      <div className="w-28 sm:w-36 shrink-0 bg-gray-100 dark:bg-gray-800 overflow-hidden relative">
+                        <img src={actImg} alt={act.activity_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      </div>
+                      <div className="p-4 flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1.5 truncate">{act.activity_name}</h3>
+                        <div className="flex items-center gap-2 text-[10px] text-gray-500 font-medium mb-2 flex-wrap">
+                          <span className="bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-md font-bold">{act.category || 'Experience'}</span>
+                          <span className="text-orange-500">★ {act.rating}</span>
+                          {act.duration && <span>⏱ {act.duration}</span>}
+                          {act.best_time && <span>🌅 {act.best_time}</span>}
+                        </div>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {act.walking_effort && <span className="text-[9px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{act.walking_effort}</span>}
+                          {act.energy_level && <span className="text-[9px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{act.energy_level}</span>}
+                          {act.target_age_group && <span className="text-[9px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{act.target_age_group}</span>}
+                        </div>
+                        {act.explainability?.reason_why && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            <span className="font-semibold text-orange-600 dark:text-orange-400">Why:</span> {act.explainability.reason_why}
+                          </p>
+                        )}
+                      </div>
+                      {act.estimated_cost_inr > 0 && (
+                        <div className="flex items-center pr-4">
+                          <span className="text-sm font-bold text-gray-700 dark:text-gray-300">₹{act.estimated_cost_inr?.toLocaleString()}</span>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+        )}
 
       </motion.main>
     </div>
