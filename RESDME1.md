@@ -462,7 +462,7 @@ Future improvements may include:
 * personalized travel history
 * collaborative group planning
 
----
+
 
 # Final Goal
 
