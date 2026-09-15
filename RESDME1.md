@@ -203,7 +203,7 @@ Users can regenerate:
 * activities
 * transport
 
-without recreating the entire itinerary.
+
 
 ---
 
